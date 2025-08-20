@@ -221,20 +221,31 @@ public class ActivePollsView extends FastInv {
     // Drawing :D
 
     private void drawGrid() {
-        int contentRows = 5;
-        int centerRow = contentRows / 2;
-        int centerCol = 4;
-        int centerSlot = centerRow * 9 + centerCol;
+        getInventory().clear();
 
-        setItem(centerSlot, basicItem(
-                matCardOpen,
-                emptyTitleMini,
-                emptyLoreMini
-        ));
+        List<Poll> all = new ArrayList<>(service.findAll());
+        this.viewData = applySort(applyFilter(all));
+
+        int totalPages = Math.max(1, (int) Math.ceil(viewData.size() / (double) pageSize));
+        page = Math.max(0, Math.min(page, totalPages - 1));
+
+        int rows = getInventory().getSize() / 9;
+        int contentRows = Math.max(1, rows - 1);
+        int centerSlot = (contentRows / 2) * 9 + 4;
 
         int startIndex = page * pageSize;
         int endExclusive = Math.min(startIndex + pageSize, viewData.size());
         List<Poll> slice = viewData.subList(startIndex, endExclusive);
+
+        if (slice.isEmpty()) {
+            setItem(centerSlot, basicItem(
+                    matCardOpen,
+                    emptyTitleMini,
+                    emptyLoreMini
+            ));
+            drawFooter(totalPages);
+            return;
+        }
 
         int slot = 0;
         for (Poll p : slice) {
@@ -293,8 +304,9 @@ public class ActivePollsView extends FastInv {
                 setItem(slot++, card);
             }
         }
-    }
 
+        drawFooter(totalPages);
+    }
     private void drawFooter(int totalPages) {
         if (totalPages > 1 && page > 0) {
             setItem(slotPrev, chip(matPrev,
