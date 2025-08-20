@@ -88,6 +88,10 @@ public class VoteDAO {
         }
     }
 
+    public void upsert(long pollId, UUID player, int optionIndex) throws SQLException {
+        upsertVote(new Vote(pollId, player, optionIndex, Instant.now()));
+    }
+
     public List<Vote> findByPoll(long pollId) throws SQLException {
         String sql = "SELECT player_uuid, opt_index, created_at FROM votes WHERE poll_id = ?";
         try (Connection c = ds.getConnection();

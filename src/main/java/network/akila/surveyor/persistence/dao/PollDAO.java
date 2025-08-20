@@ -137,4 +137,29 @@ public class PollDAO {
             throw new RuntimeException("Failed to list polls", e);
         }
     }
+
+    public void setManuallyClosed(long id, boolean closed) {
+        String sql = "UPDATE polls SET manually_closed=? WHERE id=?";
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setBoolean(1, closed);
+            ps.setLong(2, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update manually_closed for poll " + id, e);
+        }
+    }
+
+    public void delete(long id) {
+        String sql = "DELETE FROM polls WHERE id=?";
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete poll " + id, e);
+        }
+    }
+
+
 }
