@@ -12,6 +12,7 @@ import network.akila.surveyor.persistence.dao.VoteDAO;
 import network.akila.surveyor.persistence.enums.DbType;
 import network.akila.surveyor.service.ConfigService;
 import network.akila.surveyor.service.ConfigService.ConfigFile;
+import network.akila.surveyor.service.PollPlaceholders;
 import network.akila.surveyor.service.PollService;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -94,6 +95,13 @@ public final class Surveyor extends JavaPlugin {
 
         ChatOnceListener.init(this);
         new PollCommands(this, pollService);
+
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new PollPlaceholders(pollService).register();
+            getLogger().info("Surveyor poll placeholders registered with PlaceholderAPI.");
+        } else {
+            getLogger().warning("PlaceholderAPI not found! Poll placeholders will be disabled.");
+        }
     }
 
     public PollService getPollService() {
