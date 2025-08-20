@@ -88,8 +88,12 @@ public class VoteDAO {
         }
     }
 
-    public void upsert(long pollId, UUID player, int optionIndex) throws SQLException {
-        upsertVote(new Vote(pollId, player, optionIndex, Instant.now()));
+    public void upsert(long pollId, UUID player, int optionIndex) {
+        try {
+            upsertVote(new Vote(pollId, player, optionIndex, java.time.Instant.now()));
+        } catch (java.sql.SQLException e) {
+            throw new RuntimeException("Failed to upsert vote", e);
+        }
     }
 
     public List<Vote> findByPoll(long pollId) throws SQLException {
