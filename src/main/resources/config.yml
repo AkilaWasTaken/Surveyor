@@ -1,0 +1,16 @@
+database:
+  # Supported values: SQLITE, MYSQL
+  type: SQLITE
+
+  sqlite:
+    # Database file stored in the plugin's data folder
+    file: polls.db
+
+  mysql:
+    host: localhost
+    port: 3306
+    database: surveyor
+    user: root
+    password: ""
+    # Additional JDBC parameters (URL encoded if needed)
+    params: useSSL=true&useUnicode=true&characterEncoding=utf8

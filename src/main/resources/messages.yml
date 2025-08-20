@@ -1,0 +1,25 @@
+vote:
+  not_found: "<red>Poll not found.</red>"
+  closed: "<red>This poll is closed. You can no longer vote.</red>"
+  already: "<red>You already voted for <white>[{index}] {text}</white></red>"
+  success: "<green>You voted for <white>[{index}] {text}</white></green>"
+  error: "<red>Could not record your vote. Try again.</red>"
+  no_options: "<gray>No options</gray>"
+
+create:
+  custom:
+    prompt: "<gray>Type your options (comma-separated). Example: <white>Yes, No, Maybe</white>"
+    none: "<red>No options detected. Reopening wizard…</red>"
+  created: "<green>Created poll <white>#{id}</white>: <white>{question}</white></green>"
+
+cmd:
+  only_players: "<red>Only players can use this.</red>"
+  only_players_create: "<red>Only players can create polls.</red>"
+  invalid_duration: "<red>Invalid duration:</red> <white>{duration}</white>"
+  not_found: "<red>Poll #{id} not found.</red>"
+  closed_ok: "<green>Closed poll #{id}.</green>"
+  removed_ok: "<green>Removed poll #{id}.</green>"
+
+  results:
+    header: "<aqua><b>Results for poll #{id}</b></aqua> <gray>-</gray> <white>{question}</white>"
+    row: "<gray>-</gray> <white>{text}</white><gray>:</gray> <green>{count}</green>"

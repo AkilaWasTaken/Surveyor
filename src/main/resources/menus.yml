@@ -1,0 +1,229 @@
+# MiniMessage formatting is supported in names/lore.
+# Materials must be valid Bukkit Material names.
+
+active-polls:
+  title: "Active Polls"
+  rows: 6
+  datetime:
+    pattern: "yyyy-MM-dd HH:mm"
+  items:
+    card:
+      material_open: "PAPER"
+      material_closed: "BOOK"
+      name: "<white>{question}</white>"
+      # Lore supports tokens: {id}, {created}, {closes}, {relative}, {status}, {cta}
+      lore:
+        - "<gray>ID:</gray> <white>{id}</white>"
+        - "<gray>Created:</gray> <white>{created}</white>"
+        - "<gray>Closes:</gray> <white>{closes}</white>{relative}"
+        - "<gray>Status:</gray> {status}"
+        - "{cta}"
+  text:
+    none: "—"
+    status:
+      open: "<green>Open</green>"
+      soon: "<gold>Closing Soon</gold>"
+      closed: "<red>Closed</red>"
+    cta:
+      open: "<green>Click to view & vote</green>"
+      closed: "<gray>Voting disabled</gray>"
+  labels:
+    filter:
+      all: "All"
+      open: "Open"
+      closed: "Closed"
+    sort:
+      newest: "Newest"
+      closingSoon: "Closing Soon"
+      oldest: "Oldest"
+  empty:
+    title: "<gray><b>No polls found</b></gray>"
+    lore: "<dark_gray>Try a different filter.</dark_gray>"
+  behavior:
+    closingSoonHours: 6
+  footer:
+    slots:
+      prev: 45
+      filter: 46
+      sort: 47
+      page: 49
+      close: 52
+      next: 53
+    items:
+      prev:
+        material: "ARROW"
+        name: "<white><b>Previous</b></white>"
+        lore: "<gray>Go to previous page</gray>"
+      next:
+        material: "ARROW"
+        name: "<white><b>Next</b></white>"
+        lore: "<gray>Go to next page</gray>"
+      filter:
+        material: "COMPARATOR"
+        name: "<yellow><b>Filter:</b> <white>{filter}</white></yellow>"
+        lore: "<gray>All / Open / Closed</gray>\n<green>Click to cycle</green>"
+      sort:
+        material: "COMPASS"
+        name: "<yellow><b>Sort:</b> <white>{sort}</white></yellow>"
+        lore: "<gray>Newest / Closing Soon / Oldest</gray>\n<green>Click to cycle</green>"
+      page:
+        material: "MAP"
+        name: "<aqua><b>Page {page} / {pages}</b></aqua>"
+        lore: "<dark_gray>Use arrows to navigate</dark_gray>"
+      close:
+        material: "BARRIER"
+        name: "<red><b>Close</b></red>"
+        lore: "<gray>Exit this menu</gray>"
+
+poll-vote:
+  title: "Poll: {question} {suffix}"
+  titleClosedSuffix: "<gray>(<red>closed</red>)</gray>"
+  titleOpenSuffix: "<gray>({relative})</gray>"
+  rows: 5
+  datetime:
+    pattern: "yyyy-MM-dd HH:mm"
+  slots:
+    question: 10
+    closes: 19
+    refresh: 41
+    close: 40
+    help: 39
+    # Option slots allow up to 6 options by default; expand for more.
+    options: [ 12, 13, 14, 21, 22, 23 ]
+  items:
+    frame:
+      material: "GRAY_STAINED_GLASS_PANE"
+    question:
+      name: "<aqua><b>Question</b></aqua>"
+      wrapWidth: 40
+    closes:
+      name: "<yellow><b>Closes At</b></yellow>"
+      absolute: "<gray>{time}</gray>"
+      relativeOpen: "<gray>{time}</gray>"
+      relativeClosed: "<red>Closed</red>"
+      relativeNone: "<dark_gray>(no close time)</dark_gray>"
+    help:
+      name: "<white><b>Help</b></white>"
+      lore: "<gray>• Click an option to vote</gray>\n<dark_gray>• One vote per player</dark_gray>"
+    refresh:
+      name: "<white><b>Refresh</b></white>"
+      lore: "<gray>Update results & close state</gray>"
+    close:
+      name: "<red><b>Close</b></red>"
+      lore: "<gray>Exit this menu</gray>"
+    option:
+      # Used cyclically for option cards; fallback is PAPER.
+      materials: [ "LIME_CONCRETE", "CYAN_CONCRETE", "LIGHT_BLUE_CONCRETE", "ORANGE_CONCRETE", "PINK_CONCRETE", "PURPLE_CONCRETE" ]
+      name: "<white>[{index}] <green>{text}</green>"
+      lore:
+        closed: "<gray>• Votes locked</gray>\n<dark_gray>Others: {others}</dark_gray>"
+        picked: "<green>• You picked this</green>\n<dark_gray>Others: {others}</dark_gray>"
+        alreadyVoted: "<yellow>• Already voted</yellow>\n<dark_gray>Others: {others}</dark_gray>"
+        canVote: "<gray>• Click to vote</gray>\n<dark_gray>Others: {others}</dark_gray>"
+  text:
+    none: "—"
+
+confirm-poll:
+  title: "Confirm Poll"
+  rows: 3
+  datetime:
+    pattern: "yyyy-MM-dd HH:mm"
+  filler: "GRAY_STAINED_GLASS_PANE"
+  slots:
+    question: 10
+    closes: 11
+    options: 12
+    create: 15
+    back: 16
+  items:
+    question:
+      title: "<aqua><b>Question</b></aqua>"
+      line: "<gray>{question}"
+    closes:
+      title: "<yellow><b>Closes At</b></yellow>"
+      line: "<gray>{time}</gray>"
+    options:
+      title: "<white><b>Options</b></white>"
+      countSuffix: "<gray>({count})</gray>"
+      entry: "<gray> {index}. <white>{text}"
+    create:
+      name: "<green><b>Create</b></green>"
+      lore: "<gray>Create this poll.</gray>"
+    back:
+      name: "<red><b>Back</b></red>"
+      lore: "<gray>Go back to presets.</gray>"
+  text:
+    none: "—"
+
+create-wizard:
+  title: "Create Poll: Pick Answers"
+  rows: 5
+  datetime:
+    pattern: "yyyy-MM-dd HH:mm"
+  slots:
+    question: 10
+    closes: 19
+    shuffle: 28
+    cancel: 40
+    help: 41
+    custom: 39
+  items:
+    filler:
+      material: "GRAY_STAINED_GLASS_PANE"
+    question:
+      name: "<aqua><b>Question</b></aqua>"
+      line: "<gray>{question}"
+      wrapWidth: 40
+    closes:
+      name: "<yellow><b>Closes At</b></yellow>"
+      absolute: "<gray>{time}"
+      relativeSuffix: " left"
+      relativePositive: "<gray>{time}</gray>"
+      relativeNegative: "<red>expired</red>"
+    shuffle:
+      material: "LEVER"
+      name: "<white><b>Shuffle Options:</b> {state}</white>"
+      state:
+        on: "<green>ON</green>"
+        off: "<red>OFF</red>"
+      lore: "<gray>Randomize option order for each voter.</gray>"
+    cancel:
+      material: "BARRIER"
+      name: "<red><b>Cancel</b></red>"
+      lore: "<gray>Close without creating.</gray>"
+    help:
+      material: "BOOK"
+      name: "<white><b>Help</b></white>"
+      lore: "<gray>• Left-click a preset to preview & confirm</gray>\n<gray>• <gold>Shift-Left-click</gold> to create instantly</gray>"
+    custom:
+      material: "NAME_TAG"
+      name: "<green><b>Custom Options</b></green>"
+      lore: "<gray>Type options in chat, separated by commas</gray>"
+    preset:
+      name: "<white>{title}</white>"
+      header: "<gray>{title}"
+      entry: "<gray> {index}. <white>{text}"
+      trim: "<red>(Will trim to 6 options)</red>"
+      hint:
+        preview: "<gray>Left-click: <white>Preview & Confirm</white>"
+        instant: "<gray><gold>Shift-Left-click</gold><gray>: <white>Instant Create</white>"
+  # Default presets (editable). Each entry: { title, material, options[] }
+  presets:
+    - title: "Yes / No"
+      material: "LIME_DYE"
+      options: [ "Yes", "No" ]
+    - title: "Yes / No / Maybe"
+      material: "CYAN_DYE"
+      options: [ "Yes", "No", "Maybe" ]
+    - title: "A / B / C / D"
+      material: "LIGHT_BLUE_DYE"
+      options: [ "A", "B", "C", "D" ]
+    - title: "1..5 Rating"
+      material: "ORANGE_DYE"
+      options: [ "1", "2", "3", "4", "5" ]
+    - title: "Agree..Disagree"
+      material: "PINK_DYE"
+      options: [ "Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree" ]
+    - title: "Custom placeholders"
+      material: "PURPLE_DYE"
+      options: [ "Option 1", "Option 2", "Option 3" ]
