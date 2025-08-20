@@ -19,16 +19,14 @@ import java.util.function.Consumer;
 public final class ConfigService {
 
     private final JavaPlugin plugin;
-    private final DurationParser durationParser;
     private final Map<String, ConfigFile> files = new LinkedHashMap<>();
 
-    public ConfigService(JavaPlugin plugin, DurationParser durationParser) {
+    public ConfigService(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.durationParser = durationParser;
     }
 
     public ConfigService register(String fileName, Consumer<ConfigFile> validatorOrNull) {
-        files.put(fileName, new ConfigFile(plugin, fileName, validatorOrNull, durationParser));
+        files.put(fileName, new ConfigFile(plugin, fileName, validatorOrNull));
         return this;
     }
 
@@ -59,10 +57,7 @@ public final class ConfigService {
         private final File file;
         private YamlConfiguration yaml;
 
-        private ConfigFile(JavaPlugin plugin,
-                           String fileName,
-                           Consumer<ConfigFile> validator,
-                           DurationParser durationParser) {
+        private ConfigFile(JavaPlugin plugin, String fileName, Consumer<ConfigFile> validator) {
             this.plugin = plugin;
             this.fileName = fileName;
             this.validator = validator;
@@ -161,12 +156,10 @@ public final class ConfigService {
             return yaml.isSet(path);
         }
 
-        public boolean setIfMissing(String path, Object value) {
+        public void setIfMissing(String path, Object value) {
             if (!yaml.isSet(path)) {
                 yaml.set(path, value);
-                return true;
             }
-            return false;
         }
 
         public void requireOrSet(String path, Object fallback) {
