@@ -64,6 +64,11 @@
                                     <pattern>com.zaxxer.hikari</pattern>
                                     <shadedPattern>network.akila.surveyor.libs.hikari</shadedPattern>
                                 </relocation>
+                                <!-- Cloud -->
+                                <relocation>
+                                    <pattern>org.incendo.cloud</pattern>
+                                    <shadedPattern>network.akila.surveyor.libs.cloud</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
@@ -101,6 +106,13 @@
             <artifactId>paper-api</artifactId>
             <version>1.21-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- Command Framework -->
+        <dependency>
+            <groupId>org.incendo</groupId>
+            <artifactId>cloud-paper</artifactId>
+            <version>2.0.0-beta.10</version>
         </dependency>
 
         <!-- PlaceholderAPI -->
