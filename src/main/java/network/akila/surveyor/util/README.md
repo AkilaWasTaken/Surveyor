@@ -1,3 +1,0 @@
-# util
-
-Small helper classes.
