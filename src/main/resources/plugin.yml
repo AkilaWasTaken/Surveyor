@@ -3,3 +3,5 @@ version: '1.0'
 main: network.akila.surveyor.Surveyor
 api-version: '1.21'
 authors: [ Akila ]
+softdepend:
+  - PlaceholderAPI
