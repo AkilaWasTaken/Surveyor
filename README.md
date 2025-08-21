@@ -1,70 +1,60 @@
 # Surveyor
 
-Surveyor is a lightweight, GUI-based polling plugin built for [Paper](https://papermc.io/).  
-It lets players create polls, vote, and view results quickly and seamlessly, all within the game interface.
+> This plugin is still under heavy development and might contain bugs. Feel free to report them.
+>
+Surveyor is a lightweight polling plugin for [Paper](https://papermc.io/).  
+It lets players create polls, vote, and view results through a simple in-game menu.
 
-## ✨ Features
+## Features
 
-- Interactive menus for creating polls and casting votes
-- `/poll` command suite (GUI browsing, create, close, remove, results, help)
-- Polls persist to SQLite (default) or MySQL via HikariCP
-- PlaceholderAPI expansion for live poll data (`%surveyor_*%`)
-- Fully configurable messages and menu layouts (YAML)
-- Java 21 and Paper 1.21+ ready
+- Menu-based poll creation and voting
+- `/poll` command suite (browse, create, close, remove, results, help)
+- Poll data is stored in SQLite by default, or MySQL if configured (HikariCP included)
+- PlaceholderAPI support for live poll info
+- Configurable messages and menu layouts (YAML)
+- Built for Java 21 and Paper 1.21+
 
-## 📥 Installation
+> PlaceholderAPI is optional but recommended if you want to expose poll stats on scoreboards, holograms, etc.
 
-1. Download or build the JAR (see _Building_).
-2. Drop it into your server’s `plugins/` folder.
-3. Start the server to generate `config.yml`, `menus.yml`, and `messages.yml`.
-4. Adjust the configs to taste, then reload/restart.
+## Commands
 
-> PlaceholderAPI is optional but recommended to expose poll info in scoreboards, holograms, etc.
+| Command                                 | Description                                                                 |
+|-----------------------------------------|-----------------------------------------------------------------------------|
+| `/poll` or `/polls`                     | Opens the active polls menu                                                 |
+| `/poll help`                            | Shows the in-game help page                                                 |
+| `/poll create <duration> <question...>` | Starts the poll creation wizard (duration supports `30m`, `2h`, `1d`, etc.) |
+| `/poll close <pollId>`                  | Closes a poll early                                                         |
+| `/poll remove <pollId>`                 | Deletes a poll permanently                                                  |
+| `/poll results <pollId>`                | Displays results in chat                                                    |
 
-## 🕹️ Commands
+### Notes
 
-| Command                                 | Description                                                                      |
-|-----------------------------------------|----------------------------------------------------------------------------------|
-| `/poll` or `/polls`                     | Open the active-polls menu.                                                      |
-| `/poll help`                            | In‑game command reference.                                                       |
-| `/poll create <duration> <question...>` | Start the GUI wizard to create a poll. Duration supports `30m`, `2h`, `1d`, etc. |
-| `/poll close <pollId>`                  | Close a poll early.                                                              |
-| `/poll remove <pollId>`                 | Permanently delete a poll.                                                       |
-| `/poll results <pollId>`                | View poll results in chat.                                                       |
+- Answer options can be predefined or entered through chat.
+- Options can be shuffled.
+- Menus show poll status, remaining time, and total votes in real time.
 
-**GUI notes**
+## PlaceholderAPI
 
-- Preset answer sets, custom options via chat, and option shuffling.
-- Voters see poll status, remaining time, and total votes live.
+General:
 
-## 🔌 PlaceholderAPI
+- `%surveyor_active_polls%` → number of open polls
+- `%surveyor_poll_question_<id>%` → poll question
+- `%surveyor_poll_status_<id>%` → `active` / `closed`
+- `%surveyor_poll_votes_<id>%` → total votes
+- `%surveyor_poll_closes_in_<id>%` → time left (`1h30m`, `ended`, or `none`)
 
-`%surveyor_active_polls%` — number of polls that are still open  
-`%surveyor_poll_question_<id>%` — poll question  
-`%surveyor_poll_status_<id>%` — `active` / `closed`  
-`%surveyor_poll_votes_<id>%` — total votes  
-`%surveyor_poll_closes_in_<id>%` — remaining time (`1h30m`, `ended`, or `none`)
+Per option (0-based index):
 
-Per option (0‑based index):
-
-- `%surveyor_poll_option_<id>_<index>%` — option text
-- `%surveyor_poll_option_votes_<id>_<index>%` — votes for that option
+- `%surveyor_poll_option_<id>_<index>%` → option text
+- `%surveyor_poll_option_votes_<id>_<index>%` → votes for that option
 
 Player-specific:
 
-- `%surveyor_has_voted_<id>%` — `yes` / `no`
-- `%surveyor_my_vote_index_<id>%` — chosen option index (`-1` if none)
-- `%surveyor_my_vote_text_<id>%` — chosen option text (`none` if none)
+- `%surveyor_has_voted_<id>%` → `yes` / `no`
+- `%surveyor_my_vote_index_<id>%` → chosen option index (`-1` if none)
+- `%surveyor_my_vote_text_<id>%` → chosen option text (`none` if none)
 
-## ⚙️ Configuration
-
-- `config.yml` — database settings (SQLite or MySQL)
-- `menus.yml` — menu titles, slots, item materials, etc.
-- `messages.yml` — chat feedback and component text
-
-The plugin ships with sensible defaults; each file is heavily commented for easy tweaking.
-
-## 🛠️ Building from source
+## Building from source
 
 Requires JDK 21 and Maven.
 
@@ -72,8 +62,10 @@ Requires JDK 21 and Maven.
 git clone https://github.com/AkilaWasTaken/Surveyor.git
 cd Surveyor
 mvn clean package
+The built JAR will be in target/.
 ```
 
-## 📄 License
+## License
 
-Released under the MIT License. Feel free to fork, modify, and contribute back.
+Surveyor is released under the MIT License.
+Feel free to fork it, hack on it, and contribute back if you’d like.
