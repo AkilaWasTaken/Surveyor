@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Operations for polls.
@@ -28,84 +29,82 @@ public class PollService {
         this.votes = votes;
     }
 
-    public Poll create(String question, Instant closesAt, List<String> optionTexts) {
+    public CompletableFuture<Poll> create(String question, Instant closesAt, List<String> optionTexts) {
         return polls.createPoll(question, closesAt, optionTexts);
     }
 
-    public Optional<Poll> find(long id) {
+    public CompletableFuture<Optional<Poll>> find(long id) {
         return polls.findById(id);
     }
 
-    public List<Poll> findAll() {
+    public CompletableFuture<List<Poll>> findAll() {
         return polls.findAll();
     }
 
-    public void close(long id) {
-        polls.setManuallyClosed(id, true);
+    public CompletableFuture<Void> close(long id) {
+        return polls.setManuallyClosed(id, true);
     }
 
-    public void remove(long id) {
-        polls.delete(id);
+    public CompletableFuture<Void> remove(long id) {
+        return polls.delete(id);
     }
 
-    public void vote(long pollId, UUID player, int optionIndex) {
-        Poll p = polls.findById(pollId).orElseThrow(() -> new IllegalArgumentException("Poll not found: " + pollId));
-        boolean closed = p.isManuallyClosed() || (p.getClosesAt() != null && !Instant.now().isBefore(p.getClosesAt()));
-        if (closed) throw new IllegalStateException("Poll is closed");
-        if (hasVoted(pollId, player)) throw new IllegalStateException("You have already voted");
-        votes.upsert(pollId, player, optionIndex);
+    public CompletableFuture<Void> vote(long pollId, UUID player, int optionIndex) {
+        return polls.findById(pollId).thenCompose(optPoll -> {
+            Poll p = optPoll.orElseThrow(() -> new IllegalArgumentException("Poll not found: " + pollId));
+
+            boolean closed = p.isManuallyClosed() ||
+                    (p.getClosesAt() != null && !Instant.now().isBefore(p.getClosesAt()));
+            if (closed) throw new IllegalStateException("Poll is closed");
+
+            return hasVoted(pollId, player).thenCompose(already -> {
+                if (already) throw new IllegalStateException("You have already voted");
+                return votes.upsert(pollId, player, optionIndex);
+            });
+        });
     }
 
-    public boolean hasVoted(long pollId, UUID player) {
-        try {
-            return votes.hasVoted(pollId, player);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public CompletableFuture<Boolean> hasVoted(long pollId, UUID player) {
+        return votes.hasVoted(pollId, player);
     }
 
-    public Optional<Integer> getVote(long pollId, UUID player) {
-        try {
-            return votes.findByPoll(pollId).stream()
-                    .filter(v -> v.getPlayerUuid().equals(player))
-                    .map(Vote::getOptionIndex)
-                    .findFirst();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public CompletableFuture<Optional<Integer>> getVote(long pollId, UUID player) {
+        return votes.findByPoll(pollId)
+                .thenApply(list -> list.stream()
+                        .filter(v -> v.getPlayerUuid().equals(player))
+                        .map(Vote::getOptionIndex)
+                        .findFirst());
     }
 
-    public boolean isClosed(long pollId) {
-        Poll p = polls.findById(pollId).orElse(null);
-        if (p == null) return true;
-        if (p.isManuallyClosed()) return true;
-        return p.getClosesAt() != null && !Instant.now().isBefore(p.getClosesAt());
+    public CompletableFuture<Boolean> isClosed(long pollId) {
+        return polls.findById(pollId).thenApply(optPoll -> {
+            Poll p = optPoll.orElse(null);
+            if (p == null) return true;
+            if (p.isManuallyClosed()) return true;
+            return p.getClosesAt() != null && !Instant.now().isBefore(p.getClosesAt());
+        });
     }
 
-    public int countVotes(long pollId, int optionIndex) {
-        try {
-            return votes.countVotes(pollId, optionIndex);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public CompletableFuture<Integer> countVotes(long pollId, int optionIndex) {
+        return votes.countVotes(pollId, optionIndex);
     }
 
-    public int[] optionCounts(long pollId) {
-        try {
-            List<PollOption> opts = options.findByPollId(pollId);
+    public CompletableFuture<int[]> optionCounts(long pollId) {
+        return options.findByPollId(pollId).thenCompose(opts -> {
+            CompletableFuture<?>[] futures = new CompletableFuture[opts.size()];
             int[] counts = new int[opts.size()];
-            for (int i = 0; i < opts.size(); i++) counts[i] = votes.countVotes(pollId, i);
-            return counts;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+
+            for (int i = 0; i < opts.size(); i++) {
+                final int idx = i;
+                futures[i] = votes.countVotes(pollId, idx)
+                        .thenAccept(count -> counts[idx] = count);
+            }
+
+            return CompletableFuture.allOf(futures).thenApply(v -> counts);
+        });
     }
 
-    public List<PollOption> options(long pollId) {
-        try {
-            return options.findByPollId(pollId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public CompletableFuture<List<PollOption>> options(long pollId) {
+        return options.findByPollId(pollId);
     }
 }
