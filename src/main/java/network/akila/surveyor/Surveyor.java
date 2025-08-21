@@ -87,9 +87,9 @@ public final class Surveyor extends JavaPlugin {
         }
 
         DbType type = databaseProvider.getDbType();
-        PollDAO pollDAO = new PollDAO(dataSource, type);
-        PollOptionDAO pollOptionDAO = new PollOptionDAO(dataSource, type);
-        VoteDAO voteDAO = new VoteDAO(dataSource, type);
+        PollDAO pollDAO = new PollDAO(databaseProvider);
+        PollOptionDAO pollOptionDAO = new PollOptionDAO(databaseProvider);
+        VoteDAO voteDAO = new VoteDAO(databaseProvider);
 
         pollService = new PollService(pollDAO, pollOptionDAO, voteDAO);
 
