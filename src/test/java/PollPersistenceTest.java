@@ -3,10 +3,12 @@ import com.zaxxer.hikari.HikariDataSource;
 import network.akila.surveyor.model.Poll;
 import network.akila.surveyor.model.PollOption;
 import network.akila.surveyor.model.Vote;
+import network.akila.surveyor.persistence.DatabaseProvider;
 import network.akila.surveyor.persistence.dao.PollDAO;
 import network.akila.surveyor.persistence.dao.PollOptionDAO;
 import network.akila.surveyor.persistence.dao.VoteDAO;
 import network.akila.surveyor.persistence.enums.DbType;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.*;
 
 import java.time.Instant;
@@ -24,7 +26,7 @@ class PollPersistenceTest {
     private VoteDAO voteDAO;
 
     @BeforeEach
-    void setupPerTest(TestInfo info) throws Exception {
+    void setupPerTest(@NotNull TestInfo info) throws Exception {
         String dbName = info.getDisplayName().replace(" ", "_");
         System.out.println("\n--- " + dbName + " ---");
 
@@ -38,9 +40,11 @@ class PollPersistenceTest {
             st.execute("PRAGMA foreign_keys=ON;");
         }
 
-        pollDAO = new PollDAO(ds, DbType.SQLITE);
-        optionDAO = new PollOptionDAO(ds, DbType.SQLITE);
-        voteDAO = new VoteDAO(ds, DbType.SQLITE);
+        DatabaseProvider provider = new DatabaseProvider(DbType.SQLITE, ds);
+
+        pollDAO = new PollDAO(provider);
+        optionDAO = new PollOptionDAO(provider);
+        voteDAO = new VoteDAO(provider);
 
         System.out.println("Data source ready.");
     }
@@ -61,10 +65,10 @@ class PollPersistenceTest {
                 "Best System Administrator?",
                 Instant.now().plusSeconds(3600),
                 List.of("Akila", "Others (Yikes)")
-        );
+        ).join();
         System.out.println("Poll id = " + created.getId());
 
-        Poll loaded = pollDAO.findById(created.getId()).orElseThrow();
+        Poll loaded = pollDAO.findById(created.getId()).join().orElseThrow();
         System.out.println("Loaded question: " + loaded.getQuestion() + " | options: " + loaded.getOptions().size());
 
         assertNotNull(created.getId());
@@ -74,15 +78,15 @@ class PollPersistenceTest {
 
     @Test
     @DisplayName("Fetch options for a poll")
-    void insertAndRetrieveOptions() throws Exception {
+    void insertAndRetrieveOptions() {
         System.out.println("Create poll with options: Akila, No better one.");
         Poll poll = pollDAO.createPoll(
                 "Best Java administrator?",
                 Instant.now().plusSeconds(600),
                 List.of("Akila", "No better one")
-        );
+        ).join();
 
-        List<PollOption> options = optionDAO.findByPollId(poll.getId());
+        List<PollOption> options = optionDAO.findByPollId(poll.getId()).join();
         System.out.println("Fetched " + options.size() + " options:");
         for (int i = 0; i < options.size(); i++) {
             System.out.println(" - [" + i + "] " + options.get(i).getText());
@@ -95,13 +99,13 @@ class PollPersistenceTest {
 
     @Test
     @DisplayName("Save votes and read them back")
-    void saveAndRetrieveVotes() throws Exception {
+    void saveAndRetrieveVotes() {
         System.out.println("Create poll for voting.");
         Poll poll = pollDAO.createPoll(
                 "Best System Administrator?",
                 Instant.now().plusSeconds(600),
                 List.of("Akila", "Others (Yikes)")
-        );
+        ).join();
 
         UUID u1 = UUID.randomUUID();
         UUID u2 = UUID.randomUUID();
@@ -110,10 +114,10 @@ class PollPersistenceTest {
         Vote v1 = new Vote(poll.getId(), u1, 0, Instant.now());
         Vote v2 = new Vote(poll.getId(), u2, 1, Instant.now());
 
-        voteDAO.upsertVote(v1);
-        voteDAO.upsertVote(v2);
+        voteDAO.upsertVote(v1).join();
+        voteDAO.upsertVote(v2).join();
 
-        var votes = voteDAO.findByPoll(poll.getId());
+        List<Vote> votes = voteDAO.findByPoll(poll.getId()).join();
         System.out.println("Fetched " + votes.size() + " votes:");
         for (var v : votes) {
             System.out.println(" - voter=" + v.getPlayerUuid() + ", option=" + v.getOptionIndex());
@@ -130,14 +134,14 @@ class PollPersistenceTest {
                 "Best System Administrator?",
                 Instant.now().plusSeconds(1000),
                 List.of("Akila", "Others (Yikes)")
-        );
+        ).join();
         pollDAO.createPoll(
                 "Best Java administrator?",
                 Instant.now().plusSeconds(1000),
                 List.of("Akila", "No better one")
-        );
+        ).join();
 
-        List<Poll> polls = pollDAO.findAll();
+        List<Poll> polls = pollDAO.findAll().join();
         System.out.println("All polls (" + polls.size() + "):");
         for (Poll p : polls) {
             System.out.println(" - id=" + p.getId() + " | " + p.getQuestion() + " | options=" + p.getOptions().size());

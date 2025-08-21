@@ -7,6 +7,8 @@ import network.akila.surveyor.persistence.enums.DbType;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Provides a database connection pool using HikariCP.
@@ -17,10 +19,12 @@ public class DatabaseProvider {
 
     private final DbType dbType;
     private final HikariDataSource ds;
+    private final ExecutorService executor;
 
-    private DatabaseProvider(DbType dbType, HikariDataSource ds) {
+    public DatabaseProvider(DbType dbType, HikariDataSource ds) {
         this.dbType = dbType;
         this.ds = ds;
+        this.executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
 
     public static DatabaseProvider forSqlite(Path dataFolder, String fileName) {
@@ -57,13 +61,20 @@ public class DatabaseProvider {
         return ds.getConnection();
     }
 
+    public HikariDataSource getDataSource() {
+        return ds;
+    }
+
+    public ExecutorService getExecutor() {
+        return executor;
+    }
+
     public void close() {
         if (ds != null && !ds.isClosed()) {
             ds.close();
         }
-    }
-
-    public HikariDataSource getDataSource() {
-        return ds;
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdown();
+        }
     }
 }
