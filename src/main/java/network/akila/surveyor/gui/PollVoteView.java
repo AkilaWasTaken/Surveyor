@@ -24,13 +24,21 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * GUI used to list the vote options.
+ * GUI for voting on a poll.
  */
 public class PollVoteView extends FastInv {
+
+    /* Core */
 
     private final PollService service;
     private final long pollId;
     private final Player viewer;
+
+    private Poll poll;
+    private List<PollOption> options;
+    private boolean pollClosed;
+
+    /* Layout */
 
     private final int slotQuestion;
     private final int slotCloses;
@@ -39,16 +47,20 @@ public class PollVoteView extends FastInv {
     private final int slotHelp;
     private final List<Integer> optionSlots;
 
-    private final DateTimeFormatter dateFmt;
+    /*  Formatting */
 
+    private final DateTimeFormatter dateFmt;
     private final String qName;
     private final int qWrapWidth;
+
     private final String closesName;
     private final String closesAbsTmpl;
     private final String closesRelOpenTmpl;
     private final String closesRelClosed;
     private final String closesRelNone;
     private final String txtNone;
+
+    /* Controls*/
 
     private final String helpName;
     private final List<String> helpLore;
@@ -59,14 +71,20 @@ public class PollVoteView extends FastInv {
     private final String closeName;
     private final List<String> closeLore;
 
+    /* Options */
+
     private final String optNameTmpl;
     private final List<String> optLoreClosed;
     private final List<String> optLorePicked;
     private final List<String> optLoreAlreadyVoted;
     private final List<String> optLoreCanVote;
 
+    /* Materials */
+
     private final Material frameMat;
     private final List<Material> optionMats;
+
+    /* Messages */
 
     private final String msgNotFound;
     private final String msgClosed;
@@ -75,9 +93,7 @@ public class PollVoteView extends FastInv {
     private final String msgError;
     private final String msgNoOptions;
 
-    private Poll poll;
-    private List<PollOption> options;
-    private boolean pollClosed;
+    /* Init */
 
     public PollVoteView(PollService service, long pollId, Player viewer) {
         super(
@@ -123,6 +139,7 @@ public class PollVoteView extends FastInv {
         this.closesRelNone = menus.getString("poll-vote.items.closes.relativeNone", "<dark_gray>(no close time)</dark_gray>");
         this.txtNone = menus.getString("poll-vote.text.none", "—");
 
+        // Controls
         this.helpName = menus.getString("poll-vote.items.help.name", "<white><b>Help</b></white>");
         this.helpLore = splitLines(menus.getString("poll-vote.items.help.lore",
                 "<gray>• Click an option to vote</gray>\n<dark_gray>• One vote per player</dark_gray>"));
@@ -133,6 +150,7 @@ public class PollVoteView extends FastInv {
         this.closeName = menus.getString("poll-vote.items.close.name", "<red><b>Close</b></red>");
         this.closeLore = splitLines(menus.getString("poll-vote.items.close.lore", "<gray>Close this menu.</gray>"));
 
+        // Options
         this.optNameTmpl = menus.getString("poll-vote.items.option.name", "<white>[{index}] <green>{text}</green>");
         this.optLoreClosed = splitLines(menus.getString("poll-vote.items.option.lore.closed",
                 "<red>Poll closed.</red>\n<gray>You can’t vote.</gray>\n<gray>Votes (others):</gray> <white>{others}</white>"));
@@ -143,7 +161,7 @@ public class PollVoteView extends FastInv {
         this.optLoreCanVote = splitLines(menus.getString("poll-vote.items.option.lore.canVote",
                 "<gray>Click to vote for:</gray>\n<white>{text}</white>\n \n<gray>Votes (others):</gray> <white>{others}</white>"));
 
-        // messages.yml
+        // Messages
         this.msgNotFound = messages.getString("vote.not_found", "<red>Poll not found.</red>");
         this.msgClosed = messages.getString("vote.closed", "<red>This poll is closed. You can no longer vote.</red>");
         this.msgAlready = messages.getString("vote.already", "<red>You already voted for <white>[{index}] {text}</white></red>");
@@ -154,38 +172,48 @@ public class PollVoteView extends FastInv {
         draw();
     }
 
-    // Draw
+    /* Draw */
 
     private void draw() {
-        this.poll = service.find(pollId).orElse(null);
+        this.poll = service.find(pollId).join().orElse(null);
         if (poll == null) {
             setCenterError(msgNotFound);
             return;
         }
 
-        this.options = service.options(pollId);
+        this.options = service.options(pollId).join();
         this.pollClosed = poll.getClosesAt() != null && Instant.now().isAfter(poll.getClosesAt());
 
         drawFrame();
-        drawInfoCards();
+        drawInfo();
         drawControls();
         drawOptions();
     }
 
+    /**
+     * Draw the border frame
+     */
     private void drawFrame() {
         ItemStack pane = new ItemBuilder(frameMat).name(" ").build();
         int size = getInventory().getSize();
         int cols = 9;
+
+        // top and bottom rows
         for (int i = 0; i < cols; i++) setItem(i, pane);
         int lastRow = size - cols;
         for (int i = lastRow; i < size; i++) setItem(i, pane);
+
+        // left + right columns
         for (int r = 1; r < (size / cols) - 1; r++) {
             setItem(r * cols, pane);
             setItem(r * cols + (cols - 1), pane);
         }
     }
 
-    private void drawInfoCards() {
+    /**
+     * Draw question + closes-at cards
+     */
+    private void drawInfo() {
         setItem(slotQuestion, componentItem(Material.WRITABLE_BOOK,
                 qName,
                 wrapMini("<gray>" + poll.getQuestion() + "</gray>", qWrapWidth)
@@ -202,15 +230,13 @@ public class PollVoteView extends FastInv {
             rel = closesRelOpenTmpl.replace("{time}", compact);
         }
 
-        setItem(slotCloses, componentItem(Material.CLOCK,
-                closesName,
-                Arrays.asList(
-                        closesAbsTmpl.replace("{time}", abs),
-                        rel
-                )
-        ));
+        setItem(slotCloses, componentItem(Material.CLOCK, closesName, Arrays.asList(
+                closesAbsTmpl.replace("{time}", abs),
+                rel
+        )));
     }
 
+    /** Draw refresh/close/help buttons */
     private void drawControls() {
         setItem(slotRefresh, componentItem(Material.SPYGLASS, refreshName, refreshLore), e -> {
             if (e.getWhoClicked() instanceof Player p) {
@@ -229,6 +255,7 @@ public class PollVoteView extends FastInv {
         setItem(slotHelp, componentItem(Material.BOOK, helpName, helpLore));
     }
 
+    /** Draw all option buttons */
     private void drawOptions() {
         if (options == null || options.isEmpty()) {
             setCenterError(msgNoOptions);
@@ -236,24 +263,17 @@ public class PollVoteView extends FastInv {
         }
 
         UUID uuid = viewer.getUniqueId();
-        Optional<Integer> myVoteOpt = service.getVote(pollId, uuid);
+        Optional<Integer> myVoteOpt = service.getVote(pollId, uuid).join();
 
         for (int i = 0; i < options.size() && i < optionSlots.size() && i < 6; i++) {
             final int index = i;
             final PollOption option = options.get(i);
 
-            int totalVotesForOption;
-            try {
-                totalVotesForOption = service.countVotes(pollId, index);
-            } catch (Exception e) {
-                totalVotesForOption = 0;
-            }
-
-            int others = totalVotesForOption - (myVoteOpt.isPresent() && myVoteOpt.get() == index ? 1 : 0);
+            int totalVotes = safeJoin(service.countVotes(pollId, index), 0);
+            int others = totalVotes - (myVoteOpt.isPresent() && myVoteOpt.get() == index ? 1 : 0);
             if (others < 0) others = 0;
 
             Material mat = optionMats.get(i % optionMats.size());
-
             String name = optNameTmpl
                     .replace("{index}", String.valueOf(index + 1))
                     .replace("{text}", escapeMini(option.getText()));
@@ -268,58 +288,59 @@ public class PollVoteView extends FastInv {
                 lore = replaceVars(optLoreCanVote, option.getText(), others);
             }
 
-            int slot = optionSlots.get(i);
-            setItem(slot, componentItem(mat, name, lore), e -> {
-                if (!(e.getWhoClicked() instanceof Player p)) return;
-
-                Poll latest = service.find(pollId).orElse(null);
-                if (latest == null) {
-                    Utils.send(p, msgNotFound);
-                    return;
-                }
-                boolean closedNow = latest.getClosesAt() != null && Instant.now().isAfter(latest.getClosesAt());
-                if (closedNow) {
-                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
-                    Utils.send(p, msgClosed);
-                    return;
-                }
-
-                Optional<Integer> already = service.getVote(pollId, p.getUniqueId());
-                if (already.isPresent()) {
-                    int chosen = already.get();
-                    String chosenText = (chosen >= 0 && chosen < options.size()) ? options.get(chosen).getText() : "?";
-                    Utils.send(p, msgAlready
-                            .replace("{index}", String.valueOf(chosen + 1))
-                            .replace("{text}", chosenText)
-                    );
-                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
-                    return;
-                }
-
-                try {
-                    service.vote(pollId, p.getUniqueId(), index);
-                    p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.2f);
-                    Utils.send(p, msgSuccess
-                            .replace("{index}", String.valueOf(index + 1))
-                            .replace("{text}", option.getText())
-                    );
-                    new PollVoteView(service, pollId, p).open(p);
-                } catch (RuntimeException ex) {
-                    Utils.send(p, msgError);
-                    p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
-                }
-            });
+            setItem(optionSlots.get(i), componentItem(mat, name, lore), e -> handleVoteClick((Player) e.getWhoClicked(), index, option));
         }
     }
 
-    // Utils ( and title :D )
+    /* Voting Logic */
+
+    private void handleVoteClick(Player p, int index, PollOption option) {
+        Poll latest = service.find(pollId).join().orElse(null);
+        if (latest == null) {
+            Utils.send(p, msgNotFound);
+            return;
+        }
+
+        if (latest.getClosesAt() != null && Instant.now().isAfter(latest.getClosesAt())) {
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
+            Utils.send(p, msgClosed);
+            return;
+        }
+
+        Optional<Integer> already = service.getVote(pollId, p.getUniqueId()).join();
+        if (already.isPresent()) {
+            int chosen = already.get();
+            String chosenText = (chosen >= 0 && chosen < options.size()) ? options.get(chosen).getText() : "?";
+            Utils.send(p, msgAlready
+                    .replace("{index}", String.valueOf(chosen + 1))
+                    .replace("{text}", chosenText)
+            );
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
+            return;
+        }
+
+        try {
+            service.vote(pollId, p.getUniqueId(), index);
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.2f);
+            Utils.send(p, msgSuccess
+                    .replace("{index}", String.valueOf(index + 1))
+                    .replace("{text}", option.getText())
+            );
+            new PollVoteView(service, pollId, p).open(p);
+        } catch (RuntimeException ex) {
+            Utils.send(p, msgError);
+            p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.7f);
+        }
+    }
+
+    /* Helpers */
 
     private static String computeTitle(ConfigService.ConfigFile menus, PollService service, long pollId) {
         String tmpl = menus.getString("poll-vote.title", "Poll: {question} {suffix}");
         String suffixClosed = menus.getString("poll-vote.titleClosedSuffix", "<gray>(<red>closed</red>)</gray>");
         String suffixOpen = menus.getString("poll-vote.titleOpenSuffix", "<gray>({relative})</gray>");
 
-        return service.find(pollId).map(p -> {
+        return service.find(pollId).join().map(p -> {
             String q = trim(p.getQuestion());
             String suffix;
             if (p.getClosesAt() == null) suffix = "";
@@ -391,18 +412,25 @@ public class PollVoteView extends FastInv {
     }
 
     private static String escapeMini(String s) {
-        if (s == null) return "";
-        return s.replace("<", "&lt;").replace(">", "&gt;");
+        return s == null ? "" : s.replace("<", "\\<");
     }
 
-    private static List<String> replaceVars(List<String> lines, String text, int others) {
-        return lines.stream()
-                .map(l -> l.replace("{text}", escapeMini(text)).replace("{others}", String.valueOf(others)))
+    private static List<String> replaceVars(List<String> lore, String text, int others) {
+        return lore.stream()
+                .map(l -> l.replace("{text}", text).replace("{others}", String.valueOf(others)))
                 .collect(Collectors.toList());
     }
 
-    private static String asLegacy(Player p, String mini) {
-        Component c = Utils.parse(p, mini);
-        return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(c);
+    private static <T> T safeJoin(java.util.concurrent.CompletableFuture<T> f, T fallback) {
+        try {
+            return f.join();
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static String asLegacy(Player viewer, String mini) {
+        return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+                .serialize(Utils.parse(viewer, mini));
     }
 }

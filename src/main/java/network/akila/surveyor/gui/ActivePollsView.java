@@ -10,7 +10,6 @@ import network.akila.surveyor.util.DurationParser;
 import network.akila.surveyor.util.Utils;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -20,44 +19,40 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
- * GUI used to list all polls.
+ * GUI: lists all active (and closed) polls
  */
 public class ActivePollsView extends FastInv {
 
+    /* --- Core */
     private final PollService service;
+    private final DateTimeFormatter dateFmt;
+    private final Duration closingSoonWindow;
 
+    /* --- Layout */
     private final int contentSlots;
     private final int pageSize;
-
     private final int slotPrev, slotFilter, slotSort, slotPage, slotClose, slotNext;
 
+    /* --- Materials */
     private final Material matPrev, matNext, matFilter, matSort, matPage, matClose;
     private final Material matCardOpen, matCardClosed;
 
-    private final DateTimeFormatter dateFmt;
+    /* --- Text */
     private final String txtCardName;
     private final List<String> cardLoreTmpl;
-    private final String txtNone;
-    private final String txtStatusOpen, txtStatusSoon, txtStatusClosed;
+    private final String txtNone, txtStatusOpen, txtStatusSoon, txtStatusClosed;
     private final String txtCtaOpen, txtCtaClosed;
-    private final String txtPrevName, txtPrevLore;
-    private final String txtNextName, txtNextLore;
-    private final String txtFilterName, txtFilterLore;
-    private final String txtSortName, txtSortLore;
-    private final String txtPageName, txtPageLore;
-    private final String txtCloseName, txtCloseLore;
-
+    private final String txtPrevName, txtPrevLore, txtNextName, txtNextLore;
+    private final String txtFilterName, txtFilterLore, txtSortName, txtSortLore;
+    private final String txtPageName, txtPageLore, txtCloseName, txtCloseLore;
     private final String lblFilterAll, lblFilterOpen, lblFilterClosed;
     private final String lblSortNewest, lblSortClosingSoon, lblSortOldest;
-
     private final String emptyTitleMini;
     private final List<String> emptyLoreMini;
 
-    private final Duration closingSoonWindow;
-
+    /* --- State --- */
     private int page = 0;
     private Filter filter = Filter.OPEN;
     private Sort sort = Sort.NEWEST;
@@ -65,54 +60,54 @@ public class ActivePollsView extends FastInv {
 
     public ActivePollsView(PollService service) {
         super(rowsFromMenus() * 9, titleFromMenus());
-        this.service = Objects.requireNonNull(service, "PollService is required");
+        this.service = Objects.requireNonNull(service, "PollService required");
+
         ConfigService.ConfigFile menus = Surveyor.getInstance().menus();
 
-        // Rows
+        /* Rows & content area */
         int rows = rowsFromMenus();
         this.contentSlots = (rows - 1) * 9;
         this.pageSize = contentSlots;
-        int baseFooter = (rows - 1) * 9;
+        int footerBase = (rows - 1) * 9;
 
-        // Footer Slots
-        this.slotPrev = menus.getInt("active-polls.footer.slots.prev", baseFooter);
-        this.slotFilter = menus.getInt("active-polls.footer.slots.filter", baseFooter + 1);
-        this.slotSort = menus.getInt("active-polls.footer.slots.sort", baseFooter + 2);
-        this.slotPage = menus.getInt("active-polls.footer.slots.page", baseFooter + 4);
-        this.slotClose = menus.getInt("active-polls.footer.slots.close", baseFooter + 7);
-        this.slotNext = menus.getInt("active-polls.footer.slots.next", baseFooter + 8);
+        /* Footer slots */
+        this.slotPrev = menus.getInt("active-polls.footer.slots.prev", footerBase);
+        this.slotFilter = menus.getInt("active-polls.footer.slots.filter", footerBase + 1);
+        this.slotSort = menus.getInt("active-polls.footer.slots.sort", footerBase + 2);
+        this.slotPage = menus.getInt("active-polls.footer.slots.page", footerBase + 4);
+        this.slotClose = menus.getInt("active-polls.footer.slots.close", footerBase + 7);
+        this.slotNext = menus.getInt("active-polls.footer.slots.next", footerBase + 8);
 
-        // Materials
+        /* Materials */
         this.matPrev = mat(menus.getString("active-polls.footer.items.prev.material", "ARROW"), Material.ARROW);
         this.matNext = mat(menus.getString("active-polls.footer.items.next.material", "ARROW"), Material.ARROW);
         this.matFilter = mat(menus.getString("active-polls.footer.items.filter.material", "COMPARATOR"), Material.COMPARATOR);
         this.matSort = mat(menus.getString("active-polls.footer.items.sort.material", "COMPASS"), Material.COMPASS);
         this.matPage = mat(menus.getString("active-polls.footer.items.page.material", "MAP"), Material.MAP);
         this.matClose = mat(menus.getString("active-polls.footer.items.close.material", "BARRIER"), Material.BARRIER);
-
         this.matCardOpen = mat(menus.getString("active-polls.items.card.material_open", "PAPER"), Material.PAPER);
         this.matCardClosed = mat(menus.getString("active-polls.items.card.material_closed", "BOOK"), Material.BOOK);
 
-        // Formatting
-        String datePattern = menus.getString("active-polls.datetime.pattern", "yyyy-MM-dd HH:mm");
-        this.dateFmt = DateTimeFormatter.ofPattern(datePattern, Locale.ROOT).withZone(ZoneId.systemDefault());
+        /* Formatting */
+        this.dateFmt = DateTimeFormatter.ofPattern(
+                menus.getString("active-polls.datetime.pattern", "yyyy-MM-dd HH:mm"),
+                Locale.ROOT
+        ).withZone(ZoneId.systemDefault());
 
         this.txtCardName = menus.getString("active-polls.items.card.name", "<white>{question}</white>");
 
-        // Lore template
-        List<String> loreFromConfig = menus.getStringList("active-polls.items.card.lore");
-        if (loreFromConfig.isEmpty()) {
-            loreFromConfig = List.of(
-                    "<gray>ID:</gray> <white>{id}</white>",
-                    "<gray>Created:</gray> <white>{created}</white>",
-                    "<gray>Closes:</gray> <white>{closes}</white>{relative}",
-                    "<gray>Status:</gray> {status}",
-                    "",
-                    "{cta}"
-            );
-        }
-        this.cardLoreTmpl = loreFromConfig;
+        this.cardLoreTmpl = menus.getStringList("active-polls.items.card.lore").isEmpty()
+                ? List.of(
+                "<gray>ID:</gray> <white>{id}</white>",
+                "<gray>Created:</gray> <white>{created}</white>",
+                "<gray>Closes:</gray> <white>{closes}</white>{relative}",
+                "<gray>Status:</gray> {status}",
+                "",
+                "{cta}"
+        )
+                : menus.getStringList("active-polls.items.card.lore");
 
+        /* Text values */
         this.txtNone = menus.getString("active-polls.text.none", "—");
         this.txtStatusOpen = menus.getString("active-polls.text.status.open", "<green>Open</green>");
         this.txtStatusSoon = menus.getString("active-polls.text.status.soon", "<gold>Closing Soon</gold>");
@@ -133,7 +128,6 @@ public class ActivePollsView extends FastInv {
         this.txtCloseName = menus.getString("active-polls.footer.items.close.name", "<red><b>Close</b></red>");
         this.txtCloseLore = menus.getString("active-polls.footer.items.close.lore", "<gray>Exit this menu</gray>");
 
-        // footer label values (configurable)
         this.lblFilterAll = menus.getString("active-polls.labels.filter.all", "All");
         this.lblFilterOpen = menus.getString("active-polls.labels.filter.open", "Open");
         this.lblFilterClosed = menus.getString("active-polls.labels.filter.closed", "Closed");
@@ -142,10 +136,8 @@ public class ActivePollsView extends FastInv {
         this.lblSortClosingSoon = menus.getString("active-polls.labels.sort.closingSoon", "Closing Soon");
         this.lblSortOldest = menus.getString("active-polls.labels.sort.oldest", "Oldest");
 
-        // empty state
         this.emptyTitleMini = menus.getString("active-polls.empty.title", "<gray><b>No polls found</b></gray>");
-        String emptyLoreJoined = menus.getString("active-polls.empty.lore", "<dark_gray>Try a different filter.</dark_gray>");
-        this.emptyLoreMini = Arrays.asList(emptyLoreJoined.split("\n"));
+        this.emptyLoreMini = Arrays.asList(menus.getString("active-polls.empty.lore", "<dark_gray>Try a different filter.</dark_gray>").split("\n"));
 
         long soonHours = menus.getLong("active-polls.behavior.closingSoonHours", 6L);
         this.closingSoonWindow = Duration.ofHours(Math.max(1, soonHours));
@@ -153,32 +145,156 @@ public class ActivePollsView extends FastInv {
         render();
     }
 
-    // Render
+    /* Rendering */
 
     private void render() {
         getInventory().clear();
-
-        List<Poll> all = new ArrayList<>(service.findAll());
+        List<Poll> all = new ArrayList<>(service.findAll().join());
         this.viewData = applySort(applyFilter(all));
 
         int totalPages = Math.max(1, (int) Math.ceil(viewData.size() / (double) pageSize));
         page = Math.max(0, Math.min(page, totalPages - 1));
 
-        drawGrid();
+        drawGrid(totalPages);
         drawFooter(totalPages);
     }
 
-    // Filter and sort
+    private void drawGrid(int totalPages) {
+        int start = page * pageSize;
+        int end = Math.min(start + pageSize, viewData.size());
+        List<Poll> slice = viewData.subList(start, end);
+
+        if (slice.isEmpty()) {
+            int center = ((getInventory().getSize() / 9 - 1) / 2) * 9 + 4;
+            setItem(center, basicItem(matCardOpen, emptyTitleMini, emptyLoreMini));
+            return;
+        }
+
+        int slot = 0;
+        for (Poll poll : slice) {
+            if (slot >= contentSlots) break;
+
+            ItemStack card = makePollCard(poll);
+            boolean closed = isClosed(poll);
+
+            if (!closed) {
+                final long pollId = poll.getId();
+                setItem(slot, card, e -> {
+                    if (e.getWhoClicked() instanceof org.bukkit.entity.Player player) {
+                        new PollVoteView(service, pollId, player).open(player);
+                    }
+                });
+            } else {
+                setItem(slot, card);
+            }
+
+            slot++;
+        }
+    }
+
+
+    private void drawFooter(int totalPages) {
+        /* Prev */
+        if (totalPages > 1 && page > 0) {
+            setItem(slotPrev, chip(matPrev, txtPrevName, List.of(txtPrevLore)), e -> {
+                page--;
+                render();
+            });
+        }
+
+        /* Filter */
+        String filterLabel = switch (filter) {
+            case ALL -> lblFilterAll;
+            case OPEN -> lblFilterOpen;
+            case CLOSED -> lblFilterClosed;
+        };
+        setItem(slotFilter, chip(matFilter, txtFilterName.replace("{filter}", filterLabel),
+                Arrays.asList(txtFilterLore.split("\n"))), e -> {
+            filter = filter.next();
+            page = 0;
+            render();
+        });
+
+        /* Sort */
+        String sortLabel = switch (sort) {
+            case NEWEST -> lblSortNewest;
+            case CLOSING_SOON -> lblSortClosingSoon;
+            case OLDEST -> lblSortOldest;
+        };
+        setItem(slotSort, chip(matSort, txtSortName.replace("{sort}", sortLabel),
+                Arrays.asList(txtSortLore.split("\n"))), e -> {
+            sort = sort.next();
+            page = 0;
+            render();
+        });
+
+        /* Page */
+        setItem(slotPage, chip(matPage,
+                txtPageName.replace("{page}", String.valueOf(page + 1)).replace("{pages}", String.valueOf(totalPages)),
+                List.of(txtPageLore)));
+
+        /* Close */
+        setItem(slotClose, chip(matClose, txtCloseName, List.of(txtCloseLore)), e -> e.getWhoClicked().closeInventory());
+
+        /* Next */
+        if (totalPages > 1 && page + 1 < totalPages) {
+            setItem(slotNext, chip(matNext, txtNextName, List.of(txtNextLore)), e -> {
+                page++;
+                render();
+            });
+        }
+    }
+
+    /* Card creation */
+
+    private ItemStack makePollCard(Poll p) {
+        boolean closed = isClosed(p);
+        boolean closingSoon = !closed && isClosingSoon(p, closingSoonWindow);
+
+        Material icon = closed ? matCardClosed : matCardOpen;
+        String createdStr = p.getCreatedAt() == null ? txtNone : dateFmt.format(p.getCreatedAt());
+
+        final String closesStr;
+        final String relativeMini;
+        if (p.getClosesAt() != null) {
+            closesStr = dateFmt.format(p.getClosesAt());
+            String rel = relative(p.getClosesAt());
+            relativeMini = (rel != null && !rel.isBlank())
+                    ? " <dark_gray>(" + rel + ")</dark_gray>"
+                    : "";
+        } else {
+            closesStr = txtNone;
+            relativeMini = "";
+        }
+
+        String statusMini = closed ? txtStatusClosed : (closingSoon ? txtStatusSoon : txtStatusOpen);
+        String ctaMini = closed ? txtCtaClosed : txtCtaOpen;
+
+        List<String> loreMini = cardLoreTmpl.stream()
+                .map(line -> line
+                        .replace("{id}", String.valueOf(p.getId()))
+                        .replace("{created}", createdStr)
+                        .replace("{closes}", closesStr)
+                        .replace("{relative}", relativeMini)
+                        .replace("{status}", statusMini)
+                        .replace("{cta}", ctaMini)
+                )
+                .toList();
+
+        ItemStack card = basicItem(icon, txtCardName.replace("{question}", escapeMini(p.getQuestion())), loreMini);
+        if (closingSoon) addGlow(card);
+
+        return card;
+    }
+
+
+    /* Filtering & Sorting */
 
     private enum Filter {
         ALL, OPEN, CLOSED;
 
         Filter next() {
-            return switch (this) {
-                case ALL -> OPEN;
-                case OPEN -> CLOSED;
-                case CLOSED -> ALL;
-            };
+            return values()[(ordinal() + 1) % values().length];
         }
     }
 
@@ -186,11 +302,7 @@ public class ActivePollsView extends FastInv {
         NEWEST, CLOSING_SOON, OLDEST;
 
         Sort next() {
-            return switch (this) {
-                case NEWEST -> CLOSING_SOON;
-                case CLOSING_SOON -> OLDEST;
-                case OLDEST -> NEWEST;
-            };
+            return values()[(ordinal() + 1) % values().length];
         }
     }
 
@@ -198,12 +310,10 @@ public class ActivePollsView extends FastInv {
         Instant now = Instant.now();
         return switch (filter) {
             case ALL -> src;
-            case OPEN -> src.stream()
-                    .filter(p -> !p.isManuallyClosed() && (p.getClosesAt() == null || now.isBefore(p.getClosesAt())))
-                    .collect(Collectors.toList());
-            case CLOSED -> src.stream()
-                    .filter(p -> p.isManuallyClosed() || (p.getClosesAt() != null && !now.isBefore(p.getClosesAt())))
-                    .collect(Collectors.toList());
+            case OPEN ->
+                    src.stream().filter(p -> !p.isManuallyClosed() && (p.getClosesAt() == null || now.isBefore(p.getClosesAt()))).toList();
+            case CLOSED ->
+                    src.stream().filter(p -> p.isManuallyClosed() || (p.getClosesAt() != null && !now.isBefore(p.getClosesAt()))).toList();
         };
     }
 
@@ -215,159 +325,10 @@ public class ActivePollsView extends FastInv {
                     Comparator.comparing(Poll::getClosesAt, Comparator.nullsLast(Comparator.naturalOrder()));
             case OLDEST -> Comparator.comparing(Poll::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
         };
-        return src.stream().sorted(comp).collect(Collectors.toList());
+        return src.stream().sorted(comp).toList();
     }
 
-    // Drawing :D
-
-    private void drawGrid() {
-        getInventory().clear();
-
-        List<Poll> all = new ArrayList<>(service.findAll());
-        this.viewData = applySort(applyFilter(all));
-
-        int totalPages = Math.max(1, (int) Math.ceil(viewData.size() / (double) pageSize));
-        page = Math.max(0, Math.min(page, totalPages - 1));
-
-        int rows = getInventory().getSize() / 9;
-        int contentRows = Math.max(1, rows - 1);
-        int centerSlot = (contentRows / 2) * 9 + 4;
-
-        int startIndex = page * pageSize;
-        int endExclusive = Math.min(startIndex + pageSize, viewData.size());
-        List<Poll> slice = viewData.subList(startIndex, endExclusive);
-
-        if (slice.isEmpty()) {
-            setItem(centerSlot, basicItem(
-                    matCardOpen,
-                    emptyTitleMini,
-                    emptyLoreMini
-            ));
-            drawFooter(totalPages);
-            return;
-        }
-
-        int slot = 0;
-        for (Poll p : slice) {
-            if (slot >= contentSlots) break;
-
-            boolean closed = isClosed(p);
-            boolean closingSoon = !closed && isClosingSoon(p, closingSoonWindow);
-
-            Material icon = closed ? matCardClosed : matCardOpen;
-
-            String createdStr = p.getCreatedAt() == null ? txtNone : dateFmt.format(p.getCreatedAt());
-            String closesStr;
-            String relativeMini = "";
-            if (closed) {
-                closesStr = txtNone;
-            } else if (p.getClosesAt() == null) {
-                closesStr = txtNone;
-            } else {
-                closesStr = dateFmt.format(p.getClosesAt());
-                String rel = relative(p.getClosesAt());
-                if (rel != null && !rel.isBlank()) {
-                    relativeMini = " <dark_gray>(" + rel + ")</dark_gray>";
-                }
-            }
-
-            String statusMini = closed ? txtStatusClosed : (closingSoon ? txtStatusSoon : txtStatusOpen);
-            String ctaMini = closed ? txtCtaClosed : txtCtaOpen;
-
-            List<String> loreMini = new ArrayList<>(cardLoreTmpl.size());
-            for (String line : cardLoreTmpl) {
-                loreMini.add(line
-                        .replace("{id}", String.valueOf(p.getId()))
-                        .replace("{created}", createdStr)
-                        .replace("{closes}", closesStr)
-                        .replace("{relative}", relativeMini)
-                        .replace("{status}", statusMini)
-                        .replace("{cta}", ctaMini)
-                );
-            }
-
-            ItemStack card = basicItem(
-                    icon,
-                    txtCardName.replace("{question}", escapeMini(p.getQuestion())),
-                    loreMini
-            );
-            if (closingSoon) addGlow(card);
-
-            final long pollId = p.getId();
-            if (!closed) {
-                setItem(slot++, card, click -> {
-                    if (click.getWhoClicked() instanceof Player player) {
-                        new PollVoteView(service, pollId, player).open(player);
-                    }
-                });
-            } else {
-                setItem(slot++, card);
-            }
-        }
-
-        drawFooter(totalPages);
-    }
-    private void drawFooter(int totalPages) {
-        if (totalPages > 1 && page > 0) {
-            setItem(slotPrev, chip(matPrev,
-                    txtPrevName,
-                    List.of(txtPrevLore)
-            ), e -> {
-                page--;
-                render();
-            });
-        }
-
-        String filterLabel = switch (filter) {
-            case ALL -> lblFilterAll;
-            case OPEN -> lblFilterOpen;
-            case CLOSED -> lblFilterClosed;
-        };
-        setItem(slotFilter, chip(matFilter,
-                txtFilterName.replace("{filter}", filterLabel),
-                Arrays.asList(txtFilterLore.split("\n"))
-        ), e -> {
-            filter = filter.next();
-            page = 0;
-            render();
-        });
-
-        String sortLabel = switch (sort) {
-            case NEWEST -> lblSortNewest;
-            case CLOSING_SOON -> lblSortClosingSoon;
-            case OLDEST -> lblSortOldest;
-        };
-        setItem(slotSort, chip(matSort,
-                txtSortName.replace("{sort}", sortLabel),
-                Arrays.asList(txtSortLore.split("\n"))
-        ), e -> {
-            sort = sort.next();
-            page = 0;
-            render();
-        });
-
-        setItem(slotPage, chip(matPage,
-                txtPageName.replace("{page}", String.valueOf(page + 1)).replace("{pages}", String.valueOf(totalPages)),
-                List.of(txtPageLore)
-        ));
-
-        setItem(slotClose, chip(matClose,
-                txtCloseName,
-                List.of(txtCloseLore)
-        ), e -> e.getWhoClicked().closeInventory());
-
-        if (totalPages > 1 && (page + 1) < totalPages) {
-            setItem(slotNext, chip(matNext,
-                    txtNextName,
-                    List.of(txtNextLore)
-            ), e -> {
-                page++;
-                render();
-            });
-        }
-    }
-
-    // Helpers
+    /* Helpers */
 
     private static int rowsFromMenus() {
         return Math.max(2, Surveyor.getInstance().menus().getInt("active-polls.rows", 6));
@@ -378,40 +339,32 @@ public class ActivePollsView extends FastInv {
     }
 
     private boolean isClosed(Poll p) {
-        Instant now = Instant.now();
         if (p.isManuallyClosed()) return true;
-        return p.getClosesAt() != null && !now.isBefore(p.getClosesAt());
+        return p.getClosesAt() != null && !Instant.now().isBefore(p.getClosesAt());
     }
-
     private boolean isClosingSoon(Poll p, Duration window) {
-        if (p == null || p.getClosesAt() == null) return false;
-        if (isClosed(p)) return false;
+        if (p.getClosesAt() == null || isClosed(p)) return false;
         Duration until = Duration.between(Instant.now(), p.getClosesAt());
         return !until.isNegative() && until.compareTo(window) <= 0;
     }
-
     private String relative(Instant when) {
         if (when == null) return null;
         Duration d = Duration.between(Instant.now(), when);
         if (d.isZero()) return "now";
         boolean past = d.isNegative();
         Duration abs = past ? d.negated() : d;
-        String compact = DurationParser.format(abs);
-        return past ? compact + " ago" : "in " + compact;
+        return past ? DurationParser.format(abs) + " ago" : "in " + DurationParser.format(abs);
     }
 
     private ItemStack chip(Material mat, String nameMini, List<String> loreMini) {
-        ItemStack s = new ItemStack(mat);
-        ItemMeta m = s.getItemMeta();
-        m.displayName(Utils.parse(nameMini));
-        List<Component> lore = Utils.parse(loreMini);
-        if (!lore.isEmpty()) m.lore(lore);
-        m.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS);
-        s.setItemMeta(m);
-        return s;
+        return buildItem(mat, nameMini, loreMini);
     }
 
     private ItemStack basicItem(Material mat, String nameMini, List<String> loreMini) {
+        return buildItem(mat, nameMini, loreMini);
+    }
+
+    private ItemStack buildItem(Material mat, String nameMini, List<String> loreMini) {
         ItemStack s = new ItemStack(mat);
         ItemMeta m = s.getItemMeta();
         m.displayName(Utils.parse(nameMini));
@@ -421,26 +374,21 @@ public class ActivePollsView extends FastInv {
         s.setItemMeta(m);
         return s;
     }
-
     private void addGlow(ItemStack stack) {
-        try {
-            ItemMeta meta = stack.getItemMeta();
-            meta.addEnchant(Enchantment.INFINITY, 1, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            stack.setItemMeta(meta);
-        } catch (Throwable ignored) {
-        }
+        ItemMeta meta = stack.getItemMeta();
+        meta.addEnchant(Enchantment.INFINITY, 1, true);
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        stack.setItemMeta(meta);
     }
 
     private String escapeMini(String s) {
-        if (s == null) return "";
-        return s.replace("<", "&lt;").replace(">", "&gt;");
+        return s == null ? "" : s.replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private static Material mat(String name, Material def) {
         try {
             return Material.valueOf(name.toUpperCase(Locale.ROOT));
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             return def;
         }
     }

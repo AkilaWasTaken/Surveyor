@@ -27,9 +27,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
- * GUI used for the poll creation.
+ * Wizard GUI for creating polls.
  */
 public class CreatePollWizard extends FastInv {
+
+    /* Core */
 
     private final PollService service;
     private final Instant closesAt;
@@ -38,54 +40,57 @@ public class CreatePollWizard extends FastInv {
 
     private boolean shuffleOptions = false;
 
+    /* Layout */
+
     private final int slotQuestion, slotCloses, slotShuffle, slotCancel, slotHelp, slotCustom;
     private final int[] presetSlots;
     private final List<Integer> frameSlots;
 
+    /* Materials */
+
     private final Material fillerMat, cancelMat, helpMat, customMat, shuffleMat;
+
+    /* Formatting */
 
     private final DateTimeFormatter dateFmt;
 
-    private final String qName;
-    private final String qLineTmpl;
+    private final String qName, qLineTmpl;
     private final int qWrapWidth;
 
-    private final String closesName;
-    private final String closesAbsTmpl;
-    private final String closesRelSuffix;
-    private final String closesRelPositiveTmpl;
-    private final String closesRelNegative;
+    private final String closesName, closesAbsTmpl, closesRelSuffix,
+            closesRelPositiveTmpl, closesRelNegative;
 
-    private final String shuffleNameTmpl;
-    private final String shuffleStateOn;
-    private final String shuffleStateOff;
+    private final String shuffleNameTmpl, shuffleStateOn, shuffleStateOff;
     private final List<String> shuffleLore;
 
     private final String cancelName;
     private final List<String> cancelLore;
+
     private final String helpName;
     private final List<String> helpLore;
+
     private final String customName;
     private final List<String> customLore;
 
-    private final String presetItemNameTmpl;
-    private final String presetHeaderTmpl;
-    private final String presetEntryTmpl;
-    private final String presetTrimMsg;
-    private final String presetHintPreview;
-    private final String presetHintInstant;
+    /* Presets */
+
+    private final String presetItemNameTmpl, presetHeaderTmpl,
+            presetEntryTmpl, presetTrimMsg, presetHintPreview, presetHintInstant;
 
     private final List<PresetDef> presets;
 
-    private final String msgCustomPrompt;
-    private final String msgCustomNone;
-    private final String msgCreated;
+    /* Messages */
+
+    private final String msgCustomPrompt, msgCustomNone, msgCreated;
+
+    /* Constructor */
 
     public CreatePollWizard(PollService service, Instant closesAt, String question, Consumer<Poll> afterCreate) {
         super(
                 Math.max(1, Surveyor.getInstance().menus().getInt("create-wizard.rows", 5)) * 9,
                 Surveyor.getInstance().menus().getString("create-wizard.title", "Create Poll: Pick Answers")
         );
+
         this.service = service;
         this.closesAt = closesAt;
         this.question = question;
@@ -94,13 +99,13 @@ public class CreatePollWizard extends FastInv {
         ConfigService.ConfigFile menus = Surveyor.getInstance().menus();
         ConfigService.ConfigFile messages = Surveyor.getInstance().messages();
 
-        // DateTime
+        /* DateTime */
         this.dateFmt = DateTimeFormatter.ofPattern(
                 menus.getString("create-wizard.datetime.pattern", "yyyy-MM-dd HH:mm"),
                 Locale.ROOT
         ).withZone(ZoneId.systemDefault());
 
-        // Slots
+        /* Slots */
         this.slotQuestion = menus.getInt("create-wizard.slots.question", 10);
         this.slotCloses = menus.getInt("create-wizard.slots.closes", 19);
         this.slotShuffle = menus.getInt("create-wizard.slots.shuffle", 28);
@@ -115,9 +120,9 @@ public class CreatePollWizard extends FastInv {
         List<Integer> frame = menus.raw().getIntegerList("create-wizard.slots.frame");
         if (frame.isEmpty()) {
             frame = Arrays.asList(
-                    // top
+                    // top row
                     0, 1, 2, 3, 4, 5, 6, 7, 8,
-                    // bottom
+                    // bottom row
                     36, 37, 38, 39, 40, 41, 42, 43, 44,
                     // sides
                     9, 18, 27, 17, 26, 35
@@ -125,26 +130,26 @@ public class CreatePollWizard extends FastInv {
         }
         this.frameSlots = frame;
 
-        // Materials
+        /* Materials */
         this.fillerMat = mat(menus.getString("create-wizard.items.filler", "GRAY_STAINED_GLASS_PANE"), Material.GRAY_STAINED_GLASS_PANE);
         this.cancelMat = mat(menus.getString("create-wizard.items.cancel.material", "BARRIER"), Material.BARRIER);
         this.helpMat = mat(menus.getString("create-wizard.items.help.material", "BOOK"), Material.BOOK);
         this.customMat = mat(menus.getString("create-wizard.items.custom.material", "NAME_TAG"), Material.NAME_TAG);
         this.shuffleMat = mat(menus.getString("create-wizard.items.shuffle.material", "LEVER"), Material.LEVER);
 
-        // Question Card
+        /* Question */
         this.qName = menus.getString("create-wizard.items.question.name", "<aqua><b>Question</b></aqua>");
         this.qLineTmpl = menus.getString("create-wizard.items.question.line", "<gray>{question}");
         this.qWrapWidth = Math.max(12, menus.getInt("create-wizard.items.question.wrapWidth", 40));
 
-        // Closes Card
+        /* Closes */
         this.closesName = menus.getString("create-wizard.items.closes.name", "<yellow><b>Closes At</b></yellow>");
         this.closesAbsTmpl = menus.getString("create-wizard.items.closes.absolute", "<gray>{time}");
         this.closesRelSuffix = menus.getString("create-wizard.items.closes.relativeSuffix", " left");
         this.closesRelPositiveTmpl = menus.getString("create-wizard.items.closes.relativePositive", "<gray>{time}</gray>");
         this.closesRelNegative = menus.getString("create-wizard.items.closes.relativeNegative", "<red>expired</red>");
 
-        // Shuffle
+        /* Shuffle */
         this.shuffleNameTmpl = menus.getString("create-wizard.items.shuffle.name",
                 "<light_purple>Shuffle Options: </light_purple>{state}");
         this.shuffleStateOn = menus.getString("create-wizard.items.shuffle.state.on", "<green>ON</green>");
@@ -152,7 +157,7 @@ public class CreatePollWizard extends FastInv {
         this.shuffleLore = splitLines(menus.getString("create-wizard.items.shuffle.lore",
                 "<gray>Click to toggle</gray>\n<dark_gray>Randomizes order on create</dark_gray>"));
 
-        // Controls
+        /* Controls */
         this.cancelName = menus.getString("create-wizard.items.cancel.name", "<red><b>Cancel</b></red>");
         this.cancelLore = splitLines(menus.getString("create-wizard.items.cancel.lore", "<gray>Close without creating.</gray>"));
 
@@ -169,7 +174,7 @@ public class CreatePollWizard extends FastInv {
                         "<dark_gray>Format: A, B, C, D</dark_gray>\n" +
                         "<dark_gray>Max 6 options; extra are trimmed.</dark_gray>"));
 
-        // Presets (text)
+        /* Presets */
         this.presetItemNameTmpl = menus.getString("create-wizard.items.preset.name", "<white>{title}</white>");
         this.presetHeaderTmpl = menus.getString("create-wizard.items.preset.header", "<gray>{title}");
         this.presetEntryTmpl = menus.getString("create-wizard.items.preset.entry", "<gray> {index}. <white>{text}");
@@ -177,40 +182,10 @@ public class CreatePollWizard extends FastInv {
         this.presetHintPreview = menus.getString("create-wizard.items.preset.hint.preview", "<gray>Left-click: <white>Preview & Confirm</white>");
         this.presetHintInstant = menus.getString("create-wizard.items.preset.hint.instant", "<gold>Shift-Left-click</gold><gray>: <white>Instant Create</white>");
 
-        // Presets (data)
         List<Map<?, ?>> rawPresets = menus.raw().getMapList("create-wizard.presets");
-        if (rawPresets.isEmpty()) {
-            this.presets = new ArrayList<>(List.of(
-                    new PresetDef("Yes / No", "LIME_DYE", Arrays.asList("Yes", "No")),
-                    new PresetDef("Yes / No / Maybe", "CYAN_DYE", Arrays.asList("Yes", "No", "Maybe")),
-                    new PresetDef("A / B / C / D", "LIGHT_BLUE_DYE", Arrays.asList("A", "B", "C", "D")),
-                    new PresetDef("1..5 Rating", "ORANGE_DYE", Arrays.asList("1", "2", "3", "4", "5")),
-                    new PresetDef("Agree..Disagree", "PINK_DYE",
-                            Arrays.asList("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree")),
-                    new PresetDef("Custom placeholders", "PURPLE_DYE",
-                            Arrays.asList("Option 1", "Option 2", "Option 3"))
-            ));
-        } else {
-            this.presets = new ArrayList<>(rawPresets.size());
-            for (Map<?, ?> m : rawPresets) {
-                Object tObj = m.get("title");
-                Object matObj = m.get("material");
-                Object optsObj = m.get("options");
+        this.presets = parsePresets(rawPresets);
 
-                String title = tObj != null ? tObj.toString() : "Preset";
-                String material = matObj != null ? matObj.toString() : "PAPER";
-
-                List<String> opts;
-                if (optsObj instanceof List<?> list) {
-                    opts = list.stream().map(String::valueOf).collect(Collectors.toList());
-                } else {
-                    opts = List.of("A", "B", "C");
-                }
-                this.presets.add(new PresetDef(title, material, opts));
-            }
-        }
-
-        // messages.yml
+        /* Messages */
         this.msgCustomPrompt = messages.getString("create.custom.prompt",
                 "<gray>Type your options (comma-separated). Example: <white>Yes, No, Maybe</white>");
         this.msgCustomNone = messages.getString("create.custom.none",
@@ -218,14 +193,14 @@ public class CreatePollWizard extends FastInv {
         this.msgCreated = messages.getString("create.created",
                 "<green>Created poll <white>#{id}</white>: <white>{question}</white></green>");
 
-        // Draw
+        /* Draw UI */
         drawFrame();
         drawPreviewPane();
         drawControls();
         drawPresets();
     }
 
-    /* -------------------- UI -------------------- */
+    /* UI */
 
     private void drawFrame() {
         ItemStack pane = new ItemBuilder(fillerMat).name(" ").build();
@@ -324,7 +299,7 @@ public class CreatePollWizard extends FastInv {
         });
     }
 
-    // Helpers
+    /* Flow */
 
     private void createViaFlow(Player player, List<String> options, boolean instant) {
         List<String> finalOptions = new ArrayList<>(options);
@@ -345,7 +320,7 @@ public class CreatePollWizard extends FastInv {
     }
 
     private void doCreate(Player player, List<String> options) {
-        Poll poll = service.create(question, closesAt, options);
+        Poll poll = service.create(question, closesAt, options).join();
         player.playSound(player.getLocation(), Sound.UI_TOAST_IN, 1f, 1f);
 
         String createdMsg = msgCreated
@@ -356,7 +331,38 @@ public class CreatePollWizard extends FastInv {
         if (afterCreate != null) afterCreate.accept(poll);
     }
 
-    // Utils
+    /* Helpers */
+
+    private List<PresetDef> parsePresets(List<Map<?, ?>> rawPresets) {
+        if (rawPresets.isEmpty()) {
+            return new ArrayList<>(List.of(
+                    new PresetDef("Yes / No", "LIME_DYE", Arrays.asList("Yes", "No")),
+                    new PresetDef("Yes / No / Maybe", "CYAN_DYE", Arrays.asList("Yes", "No", "Maybe")),
+                    new PresetDef("A / B / C / D", "LIGHT_BLUE_DYE", Arrays.asList("A", "B", "C", "D")),
+                    new PresetDef("1..5 Rating", "ORANGE_DYE", Arrays.asList("1", "2", "3", "4", "5")),
+                    new PresetDef("Agree..Disagree", "PINK_DYE",
+                            Arrays.asList("Strongly Agree", "Agree", "Neutral", "Disagree", "Strongly Disagree")),
+                    new PresetDef("Custom placeholders", "PURPLE_DYE",
+                            Arrays.asList("Option 1", "Option 2", "Option 3"))
+            ));
+        }
+
+        List<PresetDef> parsed = new ArrayList<>(rawPresets.size());
+        for (Map<?, ?> m : rawPresets) {
+            String title = String.valueOf(m.containsKey("title") ? m.get("title") : "Preset");
+            String material = String.valueOf(m.containsKey("material") ? m.get("material") : "PAPER");
+
+            List<String> opts;
+            Object optsObj = m.get("options");
+            if (optsObj instanceof List<?> list) {
+                opts = list.stream().map(String::valueOf).collect(Collectors.toList());
+            } else {
+                opts = List.of("A", "B", "C");
+            }
+            parsed.add(new PresetDef(title, material, opts));
+        }
+        return parsed;
+    }
 
     private static Material mat(String name, Material def) {
         try {
@@ -388,6 +394,7 @@ public class CreatePollWizard extends FastInv {
         List<String> lines = new ArrayList<>();
         String[] words = plain.split(" ");
         StringBuilder current = new StringBuilder();
+
         for (String w : words) {
             if ((current.length() + w.length() + 1) > width) {
                 lines.add("<gray>" + current);
@@ -396,14 +403,17 @@ public class CreatePollWizard extends FastInv {
             if (!current.isEmpty()) current.append(' ');
             current.append(w);
         }
+
         if (!current.isEmpty()) lines.add("<gray>" + current);
         return lines;
     }
 
-    private static List<String> splitLines(String miniMulti) {
-        if (miniMulti == null || miniMulti.isBlank()) return List.of();
-        return Arrays.asList(miniMulti.split("\n"));
+    private static List<String> splitLines(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        return Arrays.asList(raw.split("\n"));
     }
+
+    /* Preset Class */
 
     private record PresetDef(String title, String material, List<String> options) {
     }
