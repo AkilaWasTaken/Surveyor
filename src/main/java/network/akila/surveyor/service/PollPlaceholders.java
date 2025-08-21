@@ -1,6 +1,7 @@
 package network.akila.surveyor.service;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import network.akila.surveyor.Surveyor;
 import network.akila.surveyor.model.Poll;
 import network.akila.surveyor.model.PollOption;
 import network.akila.surveyor.util.DurationParser;
@@ -12,6 +13,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -74,8 +78,8 @@ public class PollPlaceholders extends PlaceholderExpansion {
 
     private String compute(Player player, String idf) {
         if ("active_polls".equals(idf)) {
-            int active = (int) pollService.findAll().stream()
-                    .filter(p -> !pollService.isClosed(p.getId()))
+            int active = (int) safeJoin(pollService.findAll(), List.<Poll>of()).stream()
+                    .filter(p -> !safeJoin(pollService.isClosed(p.getId()), true))
                     .count();
             return String.valueOf(active);
         }
@@ -83,28 +87,28 @@ public class PollPlaceholders extends PlaceholderExpansion {
         if (idf.startsWith("poll_question_")) {
             Long id = parseLongTail(idf, "poll_question_");
             if (id == null) return "N/A";
-            Optional<Poll> p = pollService.find(id);
+            Optional<Poll> p = safeJoin(pollService.find(id), Optional.empty());
             return p.map(Poll::getQuestion).orElse("N/A");
         }
 
         if (idf.startsWith("poll_status_")) {
             Long id = parseLongTail(idf, "poll_status_");
             if (id == null) return "N/A";
-            return pollService.isClosed(id) ? "closed" : "active";
+            return safeJoin(pollService.isClosed(id), true) ? "closed" : "active";
         }
 
         if (idf.startsWith("poll_votes_")) {
             Long id = parseLongTail(idf, "poll_votes_");
             if (id == null) return "0";
             int total = 0;
-            for (int c : pollService.optionCounts(id)) total += c;
+            for (int c : safeJoin(pollService.optionCounts(id), new int[0])) total += c;
             return String.valueOf(total);
         }
 
         if (idf.startsWith("poll_closes_in_")) {
             Long id = parseLongTail(idf, "poll_closes_in_");
             if (id == null) return "N/A";
-            Optional<Poll> p = pollService.find(id);
+            Optional<Poll> p = safeJoin(pollService.find(id), Optional.empty());
             if (p.isEmpty()) return "N/A";
             Instant closesAt = p.get().getClosesAt();
             if (closesAt == null) return "none";
@@ -119,7 +123,7 @@ public class PollPlaceholders extends PlaceholderExpansion {
                 Long id = parseLong(parts[2]);
                 Integer idx = parseInt(parts[3]);
                 if (id == null || idx == null || idx < 0) return "N/A";
-                List<PollOption> opts = pollService.options(id);
+                List<PollOption> opts = safeJoin(pollService.options(id), List.<PollOption>of());
                 return (idx < opts.size()) ? opts.get(idx).getText() : "N/A";
             }
         }
@@ -130,7 +134,7 @@ public class PollPlaceholders extends PlaceholderExpansion {
                 Long id = parseLong(parts[3]);
                 Integer idx = parseInt(parts[4]);
                 if (id == null || idx == null || idx < 0) return "0";
-                return String.valueOf(pollService.countVotes(id, idx));
+                return String.valueOf(safeJoin(pollService.countVotes(id, idx), 0));
             }
         }
 
@@ -138,24 +142,24 @@ public class PollPlaceholders extends PlaceholderExpansion {
             if (player == null) return "no";
             Long id = parseLongTail(idf, "has_voted_");
             if (id == null) return "no";
-            return pollService.hasVoted(id, player.getUniqueId()) ? "yes" : "no";
+            return safeJoin(pollService.hasVoted(id, player.getUniqueId()), false) ? "yes" : "no";
         }
 
         if (idf.startsWith("my_vote_index_")) {
             if (player == null) return "-1";
             Long id = parseLongTail(idf, "my_vote_index_");
             if (id == null) return "-1";
-            return String.valueOf(pollService.getVote(id, player.getUniqueId()).orElse(-1));
+            return String.valueOf(safeJoin(pollService.getVote(id, player.getUniqueId()), Optional.of(-1)).orElse(-1));
         }
 
         if (idf.startsWith("my_vote_text_")) {
             if (player == null) return "none";
             Long id = parseLongTail(idf, "my_vote_text_");
             if (id == null) return "none";
-            Optional<Integer> idxOpt = pollService.getVote(id, player.getUniqueId());
+            Optional<Integer> idxOpt = safeJoin(pollService.getVote(id, player.getUniqueId()), Optional.of(-1));
             if (idxOpt.isEmpty() || idxOpt.get() < 0) return "none";
             int idx = idxOpt.get();
-            List<PollOption> opts = pollService.options(id);
+            List<PollOption> opts = safeJoin(pollService.options(id), List.<PollOption>of());
             return (idx < opts.size()) ? opts.get(idx).getText() : "none";
         }
 
@@ -163,6 +167,17 @@ public class PollPlaceholders extends PlaceholderExpansion {
     }
 
     // Helpers
+
+    private <T> T safeJoin(CompletableFuture<T> future, T fallback) {
+        try {
+            return future.join();
+        } catch (CompletionException | CancellationException e) {
+            return fallback;
+        } catch (Exception e) {
+            Surveyor.getInstance().getLogger().warning("Failed to join future: " + e.getMessage());
+            return fallback;
+        }
+    }
 
     private Long parseLongTail(String full, String prefix) {
         try {
