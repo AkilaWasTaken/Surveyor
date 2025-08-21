@@ -4,6 +4,7 @@
 
 # Maven output
 target/
+dependency-reduced-pom.xml
 
 # Logs
 *.log
@@ -11,3 +12,7 @@ target/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Plugin files
+test.db
+ync DAO methods
