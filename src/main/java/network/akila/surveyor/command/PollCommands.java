@@ -88,7 +88,7 @@ public final class PollCommands {
     private void registerRoot(String root) {
         SuggestionProvider<CommandSender> pollIdProvider =
                 (ctx, input) -> CompletableFuture.completedFuture(
-                        service.findAll().stream()
+                        service.findAll().join().stream()
                                 .map(p -> Suggestion.suggestion(String.valueOf(p.getId())))
                                 .collect(Collectors.toList())
                 );
@@ -156,7 +156,7 @@ public final class PollCommands {
                         .required("pollId", LongParser.longParser(), pollIdProvider)
                         .handler(ctx -> {
                             final long id = ctx.get("pollId");
-                            final boolean exists = service.findAll().stream().anyMatch(p -> p.getId() == id);
+                            final boolean exists = service.findAll().join().stream().anyMatch(p -> p.getId() == id);
                             if (!exists) {
                                 sendMini(ctx.sender(), msgNotFound.replace("{id}", String.valueOf(id)));
                                 return;
@@ -173,7 +173,7 @@ public final class PollCommands {
                         .required("pollId", LongParser.longParser(), pollIdProvider)
                         .handler(ctx -> {
                             final long id = ctx.get("pollId");
-                            final boolean exists = service.findAll().stream().anyMatch(p -> p.getId() == id);
+                            final boolean exists = service.findAll().join().stream().anyMatch(p -> p.getId() == id);
                             if (!exists) {
                                 sendMini(ctx.sender(), msgNotFound.replace("{id}", String.valueOf(id)));
                                 return;
@@ -190,14 +190,14 @@ public final class PollCommands {
                         .required("pollId", LongParser.longParser(), pollIdProvider)
                         .handler(ctx -> {
                             final long id = ctx.get("pollId");
-                            service.find(id).ifPresentOrElse(poll -> {
+                            service.find(id).join().ifPresentOrElse(poll -> {
                                 sendMini(ctx.sender(), msgResultsHeader
                                         .replace("{id}", String.valueOf(id))
                                         .replace("{question}", poll.getQuestion()));
 
-                                final List<PollOption> opts = service.options(id);
+                                final List<PollOption> opts = service.options(id).join();
                                 for (int i = 0; i < opts.size(); i++) {
-                                    final int count = service.countVotes(id, i);
+                                    final int count = service.countVotes(id, i).join();
                                     sendMini(ctx.sender(), msgResultsRow
                                             .replace("{text}", opts.get(i).getText())
                                             .replace("{count}", String.valueOf(count)));
