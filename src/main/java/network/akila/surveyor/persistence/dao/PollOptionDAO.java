@@ -1,12 +1,14 @@
 package network.akila.surveyor.persistence.dao;
 
-import com.zaxxer.hikari.HikariDataSource;
 import network.akila.surveyor.model.PollOption;
+import network.akila.surveyor.persistence.DatabaseProvider;
 import network.akila.surveyor.persistence.enums.DbType;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Handles persistence of PollOption objects.
@@ -15,17 +17,19 @@ import java.util.List;
 @SuppressWarnings("unused")
 public class PollOptionDAO {
 
-    private final HikariDataSource ds;
+    private final DatabaseProvider dbProvider;
     private final DbType dbType;
+    private final ExecutorService executor;
 
-    public PollOptionDAO(HikariDataSource ds, DbType dbType) {
-        this.ds = ds;
-        this.dbType = dbType;
+    public PollOptionDAO(DatabaseProvider dbProvider) {
+        this.dbProvider = dbProvider;
+        this.dbType = dbProvider.getDbType();
+        this.executor = dbProvider.getExecutor();
         initSchema();
     }
 
     private void initSchema() {
-        try (Connection c = ds.getConnection(); Statement st = c.createStatement()) {
+        try (Connection c = dbProvider.getConnection(); Statement st = c.createStatement()) {
             if (dbType == DbType.SQLITE) {
                 st.execute("""
                             CREATE TABLE IF NOT EXISTS poll_options (
@@ -52,32 +56,40 @@ public class PollOptionDAO {
         }
     }
 
-    public void insertOptions(long pollId, List<String> options) throws SQLException {
-        try (Connection c = ds.getConnection();
-             PreparedStatement ps = c.prepareStatement("INSERT INTO poll_options(poll_id, opt_index, text) VALUES (?, ?, ?)")) {
-            for (int i = 0; i < options.size(); i++) {
-                ps.setLong(1, pollId);
-                ps.setInt(2, i);
-                ps.setString(3, options.get(i));
-                ps.addBatch();
-            }
-            ps.executeBatch();
-        }
-    }
-
-    public List<PollOption> findByPollId(long pollId) throws SQLException {
-        try (Connection c = ds.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                     "SELECT opt_index, text FROM poll_options WHERE poll_id = ? ORDER BY opt_index")) {
-            ps.setLong(1, pollId);
-            try (ResultSet rs = ps.executeQuery()) {
-                List<PollOption> opts = new ArrayList<>();
-                while (rs.next()) {
-                    opts.add(new PollOption(rs.getInt("opt_index"), rs.getString("text")));
+    public CompletableFuture<Void> insertOptions(long pollId, List<String> options) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection c = dbProvider.getConnection();
+                 PreparedStatement ps = c.prepareStatement(
+                         "INSERT INTO poll_options(poll_id, opt_index, text) VALUES (?, ?, ?)")) {
+                for (int i = 0; i < options.size(); i++) {
+                    ps.setLong(1, pollId);
+                    ps.setInt(2, i);
+                    ps.setString(3, options.get(i));
+                    ps.addBatch();
                 }
-                return opts;
+                ps.executeBatch();
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to insert poll options", e);
             }
-        }
+        }, executor);
     }
 
+    public CompletableFuture<List<PollOption>> findByPollId(long pollId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection c = dbProvider.getConnection();
+                 PreparedStatement ps = c.prepareStatement(
+                         "SELECT opt_index, text FROM poll_options WHERE poll_id = ? ORDER BY opt_index")) {
+                ps.setLong(1, pollId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    List<PollOption> opts = new ArrayList<>();
+                    while (rs.next()) {
+                        opts.add(new PollOption(rs.getInt("opt_index"), rs.getString("text")));
+                    }
+                    return opts;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to find poll options for poll " + pollId, e);
+            }
+        }, executor);
+    }
 }
